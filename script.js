@@ -1,5 +1,5 @@
-// JARVIS Interface JavaScript
-class JARVISInterface {
+// SCHUNKE.IA Interface JavaScript
+class SchunkeInterface {
     constructor() {
         this.chatMessages = document.getElementById('chatMessages');
         this.voiceStatus = document.getElementById('voiceStatus');
@@ -54,7 +54,7 @@ class JARVISInterface {
                 this.updateVoiceStatus('PROCESSANDO...');
                 this.addSystemMessage(`[INPUT] "${transcript}"`);
                 
-                // Send the transcribed message to JARVIS
+                // Send the transcribed message to SCHUNKE.IA
                 setTimeout(() => {
                     this.processVoiceMessage(transcript);
                 }, 1000);
@@ -76,10 +76,10 @@ class JARVISInterface {
 
     initializeElevenLabs() {
         // The widget now renders and handles clicks itself (see index.html).
-        // We just attach optional listeners so our own JARVIS log/status UI
+        // We just attach optional listeners so our own SCHUNKE.IA log/status UI
         // reacts if the widget fires these events — but nothing here is
         // required for the actual call/mic button to work.
-        const widget = document.getElementById('jarvisWidget');
+        const widget = document.getElementById('schunkeWidget');
         if (!widget) return;
 
         this.elevenLabsWidget = widget;
@@ -109,10 +109,10 @@ class JARVISInterface {
         // Show typing indicator
         this.showTypingIndicator();
 
-        // Simulate JARVIS response (replace with actual n8n API call)
+        // Simulate SCHUNKE.IA response (replace with actual n8n API call)
         setTimeout(() => {
             this.hideTypingIndicator();
-            this.addJARVISResponse(transcript);
+            this.addSchunkeResponse(transcript);
             this.updateVoiceStatus('SISTEMA ATIVO');
         }, 1500 + Math.random() * 1000);
     }
@@ -131,13 +131,13 @@ class JARVISInterface {
         this.scrollToBottom();
     }
 
-    addJARVISResponse(userMessage) {
-        const response = this.generateJARVISResponse(userMessage);
+    addSchunkeResponse(userMessage) {
+        const response = this.generateSchunkeResponse(userMessage);
         const messageElement = document.createElement('div');
-        messageElement.className = 'message jarvis-message';
+        messageElement.className = 'message schunke-message';
         messageElement.innerHTML = `
             <div class="message-content">
-                <p>[JARVIS] ${response}</p>
+                <p>[SCHUNKE.IA] ${response}</p>
                 <span class="message-time">${this.getCurrentTime()}</span>
             </div>
         `;
@@ -161,13 +161,13 @@ class JARVISInterface {
         this.scrollToBottom();
     }
 
-    generateJARVISResponse(userMessage) {
+    generateSchunkeResponse(userMessage) {
         const responses = {
             greeting: [
-                "SISTEMA JARVIS ONLINE. COMO POSSO ASSISTIR?",
+                "SISTEMA SCHUNKE.IA ONLINE. COMO POSSO ASSISTIR?",
                 "INTELIGÊNCIA ARTIFICIAL ATIVADA. AGUARDANDO COMANDOS.",
                 "SISTEMA OPERACIONAL. PRONTO PARA EXECUÇÃO.",
-                "JARVIS ATIVO. QUAL É SUA ORDEM?"
+                "SCHUNKE.IA ATIVO. QUAL É SUA ORDEM?"
             ],
             weather: [
                 "ACESSANDO DADOS METEOROLÓGICOS...",
@@ -181,7 +181,7 @@ class JARVISInterface {
             ],
             help: [
                 "CAPACIDADES DISPONÍVEIS: ANÁLISE DE DADOS, AUTOMAÇÃO, MONITORAMENTO DE SISTEMA.",
-                "SISTEMA JARVIS - INTELIGÊNCIA ARTIFICIAL AVANÇADA. AGUARDANDO INSTRUÇÕES.",
+                "SISTEMA SCHUNKE.IA - INTELIGÊNCIA ARTIFICIAL AVANÇADA. AGUARDANDO INSTRUÇÕES.",
                 "FUNCIONALIDADES: PROCESSAMENTO DE VOZ, ANÁLISE DE DADOS, CONTROLE DE SISTEMA."
             ],
             default: [
@@ -229,7 +229,7 @@ class JARVISInterface {
 
     showTypingIndicator() {
         const typingElement = document.createElement('div');
-        typingElement.className = 'message jarvis-message typing-indicator';
+        typingElement.className = 'message schunke-message typing-indicator';
         typingElement.id = 'typingIndicator';
         typingElement.innerHTML = `
             <div class="message-avatar">
@@ -267,7 +267,7 @@ class JARVISInterface {
             .typing-dots span {
                 width: 8px;
                 height: 8px;
-                background: var(--jarvis-blue);
+                background: var(--hud-blue);
                 border-radius: 50%;
                 animation: typingPulse 1.4s infinite ease-in-out;
             }
@@ -383,7 +383,7 @@ class JARVISInterface {
     addLogEntry() {
         const logContent = document.querySelector('.log-content');
         const logEntries = [
-            '[SYSTEM] JARVIS INITIALIZED',
+            '[SYSTEM] SCHUNKE.IA INITIALIZED',
             '[AUDIO] VOICE RECOGNITION ACTIVE',
             '[NETWORK] ELEVENLABS CONNECTED',
             '[STATUS] ALL SYSTEMS OPERATIONAL',
@@ -438,7 +438,7 @@ class JARVISInterface {
         const statusDots = document.querySelectorAll('.status-dot');
         statusDots.forEach(dot => {
             setInterval(() => {
-                dot.style.boxShadow = `0 0 ${Math.random() * 15 + 5}px var(--jarvis-blue)`;
+                dot.style.boxShadow = `0 0 ${Math.random() * 15 + 5}px var(--hud-blue)`;
             }, 2000);
         });
     }
@@ -504,11 +504,11 @@ class N8NIntegration {
 
 // Initialize the interface when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-    const jarvis = new JARVISInterface();
+    const schunke = new SchunkeInterface();
     const n8n = new N8NIntegration();
     
     // Make n8n integration available globally
-    window.jarvisInterface = jarvis;
+    window.schunkeInterface = schunke;
     window.n8nIntegration = n8n;
     
     // System initialized - no additional message needed
@@ -517,9 +517,9 @@ document.addEventListener('DOMContentLoaded', () => {
 // Add some keyboard shortcuts
 document.addEventListener('keydown', (e) => {
     // Escape to stop listening (fallback native recognition, if it was ever started)
-    if (e.key === 'Escape' && window.jarvisInterface && window.jarvisInterface.isListening) {
-        if (window.jarvisInterface.recognition) {
-            window.jarvisInterface.recognition.stop();
+    if (e.key === 'Escape' && window.schunkeInterface && window.schunkeInterface.isListening) {
+        if (window.schunkeInterface.recognition) {
+            window.schunkeInterface.recognition.stop();
         }
     }
 });
