@@ -1,4 +1,4 @@
-/* JARVIS HUD Interface - Futuristic Design */
+/* SCHUNKE.IA HUD Interface - Futuristic Design */
 * {
     margin: 0;
     padding: 0;
@@ -19,6 +19,11 @@
     --hud-warning: #ffaa00;
     --hud-error: #ff3366;
     --hud-grid: rgba(0, 212, 255, 0.1);
+}
+
+html {
+    overflow: hidden;
+    height: 100%;
 }
 
 body {
@@ -84,8 +89,8 @@ body {
 
 .earth-hologram {
     position: relative;
-    width: 220px;
-    height: 220px;
+    width: clamp(120px, 15vw, 220px);
+    height: clamp(120px, 15vw, 220px);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -232,8 +237,8 @@ body {
 /* Hologram Container */
 .hologram-container {
     position: relative;
-    width: 300px;
-    height: 400px;
+    width: clamp(180px, 22vw, 300px);
+    height: clamp(230px, 42vh, 400px);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -246,11 +251,11 @@ body {
     height: 100%;
     object-fit: contain;
     filter: none;
-    margin-bottom: 100px;
+    margin-bottom: clamp(20px, 6vh, 100px);
 }
 
-/* JARVIS Label */
-.jarvis-label {
+/* SCHUNKE.IA Label */
+.schunke-label {
     position: absolute;
     bottom: 10px;
     left: 50%;
@@ -259,7 +264,7 @@ body {
     z-index: 10;
 }
 
-.jarvis-label h1 {
+.schunke-label h1 {
     font-family: 'Orbitron', monospace;
     font-size: 1.8rem;
     font-weight: 900;
@@ -284,7 +289,7 @@ body {
     flex-direction: column;
     align-items: center;
     gap: 15px;
-    margin-bottom: 90px;
+    margin-bottom: clamp(20px, 5vh, 90px);
 }
 
 .voice-button {
@@ -410,8 +415,8 @@ body {
 
 .radar-hologram {
     position: relative;
-    width: 420px;
-    height: 420px;
+    width: clamp(180px, 24vw, 380px);
+    height: clamp(180px, 24vw, 380px);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -574,7 +579,7 @@ body {
     animation: voicePulse 0.5s infinite;
 }
 
-/* ElevenLabs Widget - shown inline (not floating), styled to match JARVIS.
+/* ElevenLabs Widget - shown inline (not floating), styled to match SCHUNKE.IA.
    We no longer hide it and drive it via startConversation()/endConversation():
    that API is not reliably exposed by this widget build. Showing the
    vendor's own button guarantees the mic/call button always works. */
@@ -755,7 +760,7 @@ elevenlabs-convai {
         height: 300px;
     }
     
-    .jarvis-label h1 {
+    .schunke-label h1 {
         font-size: 1.4rem;
     }
     
