@@ -2,13 +2,11 @@
 class JARVISInterface {
     constructor() {
         this.chatMessages = document.getElementById('chatMessages');
-        this.voiceButton = document.getElementById('voiceButton');
         this.voiceStatus = document.getElementById('voiceStatus');
         this.voiceIndicator = document.getElementById('voiceIndicator');
         this.isListening = false;
         this.recognition = null;
         this.elevenLabsWidget = null;
-        this.isConversationActive = false;
         
         this.initializeInterface();
         this.setupEventListeners();
@@ -29,10 +27,10 @@ class JARVISInterface {
     }
 
     setupEventListeners() {
-        // Voice button click - now triggers ElevenLabs widget
-        this.voiceButton.addEventListener('click', () => {
-            this.triggerElevenLabsWidget();
-        });
+        // No custom click handler needed here anymore — the ElevenLabs
+        // widget renders its own real button (in the center HUD) and
+        // handles clicks/mic access itself. See initializeElevenLabs()
+        // below for the optional status-sync listeners.
     }
 
     initializeSpeechRecognition() {
@@ -46,7 +44,6 @@ class JARVISInterface {
 
             this.recognition.onstart = () => {
                 this.isListening = true;
-                this.updateVoiceButtonState('listening');
                 this.updateVoiceStatus('ESCUTANDO...');
                 this.voiceIndicator.classList.add('active');
                 this.addSystemMessage('[AUDIO] RECONHECIMENTO DE VOZ ATIVADO');
@@ -54,7 +51,6 @@ class JARVISInterface {
 
             this.recognition.onresult = (event) => {
                 const transcript = event.results[0][0].transcript;
-                this.updateVoiceButtonState('processing');
                 this.updateVoiceStatus('PROCESSANDO...');
                 this.addSystemMessage(`[INPUT] "${transcript}"`);
                 
@@ -66,14 +62,12 @@ class JARVISInterface {
 
             this.recognition.onerror = (event) => {
                 console.error('Speech recognition error:', event.error);
-                this.updateVoiceButtonState('idle');
                 this.updateVoiceStatus('ERRO. TENTE NOVAMENTE.');
                 this.addSystemMessage('[ERROR] FALHA NO RECONHECIMENTO DE VOZ');
             };
 
             this.recognition.onend = () => {
                 this.isListening = false;
-                this.updateVoiceButtonState('idle');
                 this.updateVoiceStatus('SISTEMA ATIVO');
                 this.voiceIndicator.classList.remove('active');
             };
@@ -81,70 +75,26 @@ class JARVISInterface {
     }
 
     initializeElevenLabs() {
-        // Wait for the widget element AND its public API to be ready.
-        // (The custom element exists in the DOM before the library finishes
-        // registering startConversation/endConversation on it, so we check
-        // for the method itself, not just the element.)
-        const checkWidget = () => {
-            const widget = document.getElementById('jarvisWidget');
-            if (widget && typeof widget.startConversation === 'function') {
-                this.elevenLabsWidget = widget;
-                this.updateVoiceStatus('SISTEMA ATIVO');
-                console.log('ElevenLabs widget loaded successfully');
+        // The widget now renders and handles clicks itself (see index.html).
+        // We just attach optional listeners so our own JARVIS log/status UI
+        // reacts if the widget fires these events — but nothing here is
+        // required for the actual call/mic button to work.
+        const widget = document.getElementById('jarvisWidget');
+        if (!widget) return;
 
-                widget.addEventListener('conversationStarted', () => {
-                    this.isConversationActive = true;
-                    this.updateVoiceButtonState('listening');
-                    this.updateVoiceStatus('ESCUTANDO...');
-                    this.voiceIndicator.classList.add('active');
-                    this.addSystemMessage('[AUDIO] CONVERSA INICIADA COM ELEVENLABS');
-                });
+        this.elevenLabsWidget = widget;
 
-                widget.addEventListener('conversationEnded', () => {
-                    this.isConversationActive = false;
-                    this.updateVoiceButtonState('idle');
-                    this.updateVoiceStatus('SISTEMA ATIVO');
-                    this.voiceIndicator.classList.remove('active');
-                    this.addSystemMessage('[AUDIO] CONVERSA ENCERRADA');
-                });
-            } else {
-                // Retry until the library finishes initializing the element
-                setTimeout(checkWidget, 300);
-            }
-        };
+        widget.addEventListener('conversationStarted', () => {
+            this.updateVoiceStatus('ESCUTANDO...');
+            this.voiceIndicator.classList.add('active');
+            this.addSystemMessage('[AUDIO] CONVERSA INICIADA COM ELEVENLABS');
+        });
 
-        checkWidget();
-    }
-
-    triggerElevenLabsWidget() {
-        if (!this.elevenLabsWidget) {
-            this.updateVoiceStatus('[WAIT] CARREGANDO...');
-            // Widget still loading — fall back to native speech recognition if available
-            this.toggleVoiceRecognition();
-            return;
-        }
-
-        try {
-            if (this.isConversationActive) {
-                // Already talking -> hang up
-                this.elevenLabsWidget.endConversation();
-            } else {
-                // Not talking -> start the real ElevenLabs conversation.
-                // UI state (button/status/indicator) is updated by the
-                // 'conversationStarted' event listener, not here, so it
-                // stays in sync with what's actually happening.
-                this.updateVoiceStatus('ATIVANDO ELEVENLABS...');
-                this.elevenLabsWidget.startConversation();
-            }
-        } catch (error) {
-            console.error('Error triggering ElevenLabs widget:', error);
-            this.updateVoiceStatus('[ERROR] FALHA ELEVENLABS');
-            this.updateVoiceButtonState('idle');
-        }
-    }
-
-    updateVoiceButtonState(state) {
-        this.voiceButton.className = `voice-button ${state}`;
+        widget.addEventListener('conversationEnded', () => {
+            this.updateVoiceStatus('SISTEMA ATIVO');
+            this.voiceIndicator.classList.remove('active');
+            this.addSystemMessage('[AUDIO] CONVERSA ENCERRADA');
+        });
     }
 
     updateVoiceStatus(text) {
@@ -163,7 +113,6 @@ class JARVISInterface {
         setTimeout(() => {
             this.hideTypingIndicator();
             this.addJARVISResponse(transcript);
-            this.updateVoiceButtonState('idle');
             this.updateVoiceStatus('SISTEMA ATIVO');
         }, 1500 + Math.random() * 1000);
     }
@@ -567,15 +516,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Add some keyboard shortcuts
 document.addEventListener('keydown', (e) => {
-    // Space bar to trigger ElevenLabs widget
-    if (e.code === 'Space' && !e.repeat) {
-        e.preventDefault();
-        if (window.jarvisInterface) {
-            window.jarvisInterface.triggerElevenLabsWidget();
-        }
-    }
-    
-    // Escape to stop listening (fallback to native recognition)
+    // Escape to stop listening (fallback native recognition, if it was ever started)
     if (e.key === 'Escape' && window.jarvisInterface && window.jarvisInterface.isListening) {
         if (window.jarvisInterface.recognition) {
             window.jarvisInterface.recognition.stop();
