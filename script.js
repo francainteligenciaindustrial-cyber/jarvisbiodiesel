@@ -1,240 +1,100 @@
 // SCHUNKE.IA Interface JavaScript
-//
-// Voice architecture:
-//   1. A native browser SpeechRecognition instance runs continuously in the
-//      background, listening only for the wake word ("Schunke"). This never
-//      talks to ElevenLabs — it's just local, free wake-word spotting.
-//   2. When the wake word is heard, that listener stops (releasing the mic)
-//      and we start a REAL ElevenLabs conversation using the official
-//      @elevenlabs/client SDK (Conversation.startSession). This is a
-//      documented, code-controllable API — unlike the <elevenlabs-convai>
-//      widget we used before, which did not reliably expose a JS API to
-//      trigger on this build.
-//   3. When that conversation ends, we go back to step 1 automatically.
-//
-// This is why script.js is loaded as a module (see index.html) — it needs
-// to `import` the SDK from a CDN.
-
-import { Conversation } from "https://cdn.jsdelivr.net/npm/@elevenlabs/client/+esm";
-
-const SCHUNKE_AGENT_ID = "agent_5601kxpwvjzhfzqa2dakf1h64bn5";
-
-// Phonetic variants to catch, since browser speech-to-text may transcribe
-// "Schunke" in a few different ways depending on accent/mic quality.
-// Word-boundary regex so we don't false-match a substring inside an
-// unrelated word.
-const WAKE_WORDS = ["schunke", "chunke", "shunke", "xunke", "chunque"];
-const WAKE_WORD_REGEX = new RegExp(`\\b(${WAKE_WORDS.join("|")})\\b`, "i");
-
-// How long the conversation can sit idle (no new message from either side)
-// before we automatically hang up and go back to only listening for the
-// wake word. Without this, one "Schunke" would open a conversation that
-// stays live forever and reacts to everything you say afterwards.
-const CONVERSATION_IDLE_TIMEOUT_MS = 12000;
-
 class SchunkeInterface {
     constructor() {
         this.chatMessages = document.getElementById('chatMessages');
-        this.voiceButton = document.getElementById('voiceButton');
         this.voiceStatus = document.getElementById('voiceStatus');
         this.voiceIndicator = document.getElementById('voiceIndicator');
-
-        this.wakeWordRecognition = null;
-        this.isWakeListening = false;
-        this._pendingStartConversation = false;
-
-        this.conversation = null;
-        this.isConversationActive = false;
-        this.inactivityTimer = null;
-
+        this.isListening = false;
+        this.recognition = null;
+        this.elevenLabsWidget = null;
+        
         this.initializeInterface();
         this.setupEventListeners();
-        this.initializeWakeWordListener();
+        this.initializeSpeechRecognition();
+        this.initializeElevenLabs();
         this.startSystemAnimations();
     }
 
     initializeInterface() {
+        // Add typing indicator
         this.addTypingIndicator();
+        
+        // Initialize HUD animations
         this.initializeHUDAnimations();
+        
+        // Start dynamic data updates
         this.startDynamicUpdates();
     }
 
     setupEventListeners() {
-        // Manual click also works, in case someone doesn't want to rely on
-        // the wake word (or is in a noisy environment).
-        this.voiceButton.addEventListener('click', () => {
-            if (this.isConversationActive) {
-                this.endConversation();
-            } else if (this.isWakeListening) {
-                this._pendingStartConversation = true;
-                this.wakeWordRecognition.stop();
-            } else {
-                this.startConversation();
-            }
+        // No custom click handler needed here anymore — the ElevenLabs
+        // widget renders its own real button (in the center HUD) and
+        // handles clicks/mic access itself. See initializeElevenLabs()
+        // below for the optional status-sync listeners.
+    }
+
+    initializeSpeechRecognition() {
+        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            this.recognition = new SpeechRecognition();
+            
+            this.recognition.continuous = false;
+            this.recognition.interimResults = false;
+            this.recognition.lang = 'pt-BR';
+
+            this.recognition.onstart = () => {
+                this.isListening = true;
+                this.updateVoiceStatus('ESCUTANDO...');
+                this.voiceIndicator.classList.add('active');
+                this.addSystemMessage('[AUDIO] RECONHECIMENTO DE VOZ ATIVADO');
+            };
+
+            this.recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                this.updateVoiceStatus('PROCESSANDO...');
+                this.addSystemMessage(`[INPUT] "${transcript}"`);
+                
+                // Send the transcribed message to SCHUNKE.IA
+                setTimeout(() => {
+                    this.processVoiceMessage(transcript);
+                }, 1000);
+            };
+
+            this.recognition.onerror = (event) => {
+                console.error('Speech recognition error:', event.error);
+                this.updateVoiceStatus('ERRO. TENTE NOVAMENTE.');
+                this.addSystemMessage('[ERROR] FALHA NO RECONHECIMENTO DE VOZ');
+            };
+
+            this.recognition.onend = () => {
+                this.isListening = false;
+                this.updateVoiceStatus('SISTEMA ATIVO');
+                this.voiceIndicator.classList.remove('active');
+            };
+        }
+    }
+
+    initializeElevenLabs() {
+        // The widget now renders and handles clicks itself (see index.html).
+        // We just attach optional listeners so our own SCHUNKE.IA log/status UI
+        // reacts if the widget fires these events — but nothing here is
+        // required for the actual call/mic button to work.
+        const widget = document.getElementById('schunkeWidget');
+        if (!widget) return;
+
+        this.elevenLabsWidget = widget;
+
+        widget.addEventListener('conversationStarted', () => {
+            this.updateVoiceStatus('ESCUTANDO...');
+            this.voiceIndicator.classList.add('active');
+            this.addSystemMessage('[AUDIO] CONVERSA INICIADA COM ELEVENLABS');
         });
-    }
 
-    // ---------- Always-on wake-word listening ----------
-
-    initializeWakeWordListener() {
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-
-        if (!SpeechRecognition) {
-            this.updateVoiceStatus('VOZ NÃO SUPORTADA NESTE NAVEGADOR');
-            this.addSystemMessage('[ERROR] Este navegador não suporta reconhecimento de voz. Use o botão para falar com a SCHUNKE.IA.');
-            return;
-        }
-
-        this.wakeWordRecognition = new SpeechRecognition();
-        this.wakeWordRecognition.continuous = true;
-        // Only final results — interim (partial) results are faster but
-        // noisier, and were likely causing false positives.
-        this.wakeWordRecognition.interimResults = false;
-        this.wakeWordRecognition.lang = 'pt-BR';
-
-        this.wakeWordRecognition.onresult = (event) => {
-            const lastResult = event.results[event.results.length - 1];
-            const transcript = lastResult[0].transcript.toLowerCase();
-
-            if (this.containsWakeWord(transcript)) {
-                this.addSystemMessage(`[WAKE] "${transcript.trim()}" — palavra de ativação detectada`);
-                // Stop wake-word listening first so it releases the
-                // microphone cleanly before the real conversation grabs it
-                // (see onend below, which actually starts the conversation).
-                this._pendingStartConversation = true;
-                this.wakeWordRecognition.stop();
-            }
-        };
-
-        this.wakeWordRecognition.onerror = (event) => {
-            // 'no-speech' and 'aborted' fire constantly in always-on mode —
-            // that's expected, not a real error.
-            if (event.error !== 'no-speech' && event.error !== 'aborted') {
-                console.warn('Wake-word listener error:', event.error);
-            }
-        };
-
-        this.wakeWordRecognition.onend = () => {
-            this.isWakeListening = false;
+        widget.addEventListener('conversationEnded', () => {
+            this.updateVoiceStatus('SISTEMA ATIVO');
             this.voiceIndicator.classList.remove('active');
-
-            if (this._pendingStartConversation) {
-                this._pendingStartConversation = false;
-                this.startConversation();
-            } else if (!this.isConversationActive) {
-                // Browsers auto-stop recognition after a period of silence —
-                // restart it so it's effectively "always listening".
-                setTimeout(() => this.startWakeWordListening(), 300);
-            }
-        };
-
-        this.startWakeWordListening();
-    }
-
-    startWakeWordListening() {
-        if (!this.wakeWordRecognition || this.isWakeListening || this.isConversationActive) {
-            return;
-        }
-        try {
-            this.wakeWordRecognition.start();
-            this.isWakeListening = true;
-            this.voiceButton.className = 'voice-button';
-            this.updateVoiceStatus('OUVINDO "SCHUNKE"...');
-        } catch (error) {
-            // start() throws if called while already running — safe to ignore.
-        }
-    }
-
-    containsWakeWord(transcript) {
-        return WAKE_WORD_REGEX.test(transcript);
-    }
-
-    // ---------- Real ElevenLabs conversation ----------
-
-    async startConversation() {
-        if (this.isConversationActive) return;
-
-        try {
-            this.updateVoiceStatus('CONECTANDO...');
-            this.voiceButton.className = 'voice-button processing';
-
-            this.conversation = await Conversation.startSession({
-                agentId: SCHUNKE_AGENT_ID,
-
-                onConnect: () => {
-                    this.isConversationActive = true;
-                    this.voiceButton.className = 'voice-button listening';
-                    this.voiceIndicator.classList.add('active');
-                    this.updateVoiceStatus('CONVERSA ATIVA');
-                    this.addSystemMessage('[AUDIO] CONVERSA INICIADA COM SCHUNKE.IA');
-                    this.resetInactivityTimer();
-                },
-
-                onDisconnect: () => {
-                    this.isConversationActive = false;
-                    this.conversation = null;
-                    this.clearInactivityTimer();
-                    this.voiceButton.className = 'voice-button';
-                    this.voiceIndicator.classList.remove('active');
-                    this.addSystemMessage('[AUDIO] CONVERSA ENCERRADA');
-                    this.startWakeWordListening();
-                },
-
-                onMessage: (message) => {
-                    if (message.source === 'user') {
-                        this.addUserMessage(message.message);
-                    } else {
-                        this.addSchunkeMessage(message.message);
-                    }
-                    // Any new message (yours or the agent's) means the
-                    // conversation is still active — push the auto-hangup
-                    // timer back out.
-                    this.resetInactivityTimer();
-                },
-
-                onError: (error) => {
-                    console.error('ElevenLabs conversation error:', error);
-                    this.addSystemMessage('[ERROR] FALHA NA CONVERSA COM SCHUNKE.IA');
-                    this.isConversationActive = false;
-                    this.conversation = null;
-                    this.clearInactivityTimer();
-                    this.voiceButton.className = 'voice-button';
-                    this.startWakeWordListening();
-                },
-            });
-        } catch (error) {
-            console.error('Failed to start conversation:', error);
-            this.updateVoiceStatus('[ERROR] FALHA AO CONECTAR');
-            this.addSystemMessage('[ERROR] NÃO FOI POSSÍVEL CONECTAR À SCHUNKE.IA');
-            this.voiceButton.className = 'voice-button';
-            this.startWakeWordListening();
-        }
-    }
-
-    async endConversation() {
-        if (this.conversation) {
-            try {
-                await this.conversation.endSession();
-            } catch (error) {
-                console.error('Error ending conversation:', error);
-            }
-            this.conversation = null;
-        }
-    }
-
-    resetInactivityTimer() {
-        this.clearInactivityTimer();
-        this.inactivityTimer = setTimeout(() => {
-            this.addSystemMessage('[AUDIO] SILÊNCIO DETECTADO — ENCERRANDO CONVERSA AUTOMATICAMENTE');
-            this.endConversation();
-        }, CONVERSATION_IDLE_TIMEOUT_MS);
-    }
-
-    clearInactivityTimer() {
-        if (this.inactivityTimer) {
-            clearTimeout(this.inactivityTimer);
-            this.inactivityTimer = null;
-        }
+            this.addSystemMessage('[AUDIO] CONVERSA ENCERRADA');
+        });
     }
 
     updateVoiceStatus(text) {
@@ -242,7 +102,20 @@ class SchunkeInterface {
         statusText.textContent = text;
     }
 
-    // ---------- Chat log rendering ----------
+    processVoiceMessage(transcript) {
+        // Add user message
+        this.addUserMessage(transcript);
+        
+        // Show typing indicator
+        this.showTypingIndicator();
+
+        // Simulate SCHUNKE.IA response (replace with actual n8n API call)
+        setTimeout(() => {
+            this.hideTypingIndicator();
+            this.addSchunkeResponse(transcript);
+            this.updateVoiceStatus('SISTEMA ATIVO');
+        }, 1500 + Math.random() * 1000);
+    }
 
     addUserMessage(message) {
         const messageElement = document.createElement('div');
@@ -253,21 +126,25 @@ class SchunkeInterface {
                 <span class="message-time">${this.getCurrentTime()}</span>
             </div>
         `;
+        
         this.chatMessages.appendChild(messageElement);
         this.scrollToBottom();
     }
 
-    addSchunkeMessage(message) {
+    addSchunkeResponse(userMessage) {
+        const response = this.generateSchunkeResponse(userMessage);
         const messageElement = document.createElement('div');
         messageElement.className = 'message schunke-message';
         messageElement.innerHTML = `
             <div class="message-content">
-                <p>[SCHUNKE.IA] ${this.escapeHtml(message)}</p>
+                <p>[SCHUNKE.IA] ${response}</p>
                 <span class="message-time">${this.getCurrentTime()}</span>
             </div>
         `;
+        
         this.chatMessages.appendChild(messageElement);
         this.scrollToBottom();
+        
     }
 
     addSystemMessage(message) {
@@ -279,8 +156,75 @@ class SchunkeInterface {
                 <span class="message-time">${this.getCurrentTime()}</span>
             </div>
         `;
+        
         this.chatMessages.appendChild(messageElement);
         this.scrollToBottom();
+    }
+
+    generateSchunkeResponse(userMessage) {
+        const responses = {
+            greeting: [
+                "SISTEMA SCHUNKE.IA ONLINE. COMO POSSO ASSISTIR?",
+                "INTELIGÊNCIA ARTIFICIAL ATIVADA. AGUARDANDO COMANDOS.",
+                "SISTEMA OPERACIONAL. PRONTO PARA EXECUÇÃO.",
+                "SCHUNKE.IA ATIVO. QUAL É SUA ORDEM?"
+            ],
+            weather: [
+                "ACESSANDO DADOS METEOROLÓGICOS...",
+                "CONECTANDO COM SENSORES CLIMÁTICOS...",
+                "ANALISANDO CONDIÇÕES ATMOSFÉRICAS..."
+            ],
+            time: [
+                `HORA ATUAL: ${new Date().toLocaleTimeString('pt-BR')}`,
+                `TEMPO SISTEMA: ${new Date().toLocaleTimeString('pt-BR')}`,
+                `VERIFICAÇÃO TEMPORAL: ${new Date().toLocaleTimeString('pt-BR')}`
+            ],
+            help: [
+                "CAPACIDADES DISPONÍVEIS: ANÁLISE DE DADOS, AUTOMAÇÃO, MONITORAMENTO DE SISTEMA.",
+                "SISTEMA SCHUNKE.IA - INTELIGÊNCIA ARTIFICIAL AVANÇADA. AGUARDANDO INSTRUÇÕES.",
+                "FUNCIONALIDADES: PROCESSAMENTO DE VOZ, ANÁLISE DE DADOS, CONTROLE DE SISTEMA."
+            ],
+            default: [
+                "PROCESSANDO SOLICITAÇÃO...",
+                "ANALISANDO DADOS DE ENTRADA...",
+                "SISTEMA EM PROCESSAMENTO...",
+                "EXECUTANDO ANÁLISE...",
+                "AGUARDE... PROCESSANDO INFORMAÇÕES..."
+            ]
+        };
+
+        const message = userMessage.toLowerCase();
+        
+        if (message.includes('olá') || message.includes('oi') || message.includes('bom dia') || message.includes('boa tarde') || message.includes('boa noite')) {
+            return this.getRandomResponse(responses.greeting);
+        } else if (message.includes('clima') || message.includes('tempo')) {
+            return this.getRandomResponse(responses.weather);
+        } else if (message.includes('hora') || message.includes('relógio')) {
+            return this.getRandomResponse(responses.time);
+        } else if (message.includes('ajuda') || message.includes('o que você pode fazer')) {
+            return this.getRandomResponse(responses.help);
+        } else {
+            return this.getRandomResponse(responses.default);
+        }
+    }
+
+    getRandomResponse(responses) {
+        return responses[Math.floor(Math.random() * responses.length)];
+    }
+
+
+    toggleVoiceRecognition() {
+        if (!this.recognition) {
+            this.addSystemMessage('Reconhecimento de voz não disponível neste navegador.');
+            this.updateVoiceStatus('Reconhecimento não disponível');
+            return;
+        }
+
+        if (this.isListening) {
+            this.recognition.stop();
+        } else {
+            this.recognition.start();
+        }
     }
 
     showTypingIndicator() {
@@ -299,6 +243,7 @@ class SchunkeInterface {
                 </div>
             </div>
         `;
+        
         this.chatMessages.appendChild(typingElement);
         this.scrollToBottom();
     }
@@ -318,7 +263,7 @@ class SchunkeInterface {
                 gap: 4px;
                 align-items: center;
             }
-
+            
             .typing-dots span {
                 width: 8px;
                 height: 8px;
@@ -326,10 +271,10 @@ class SchunkeInterface {
                 border-radius: 50%;
                 animation: typingPulse 1.4s infinite ease-in-out;
             }
-
+            
             .typing-dots span:nth-child(1) { animation-delay: -0.32s; }
             .typing-dots span:nth-child(2) { animation-delay: -0.16s; }
-
+            
             @keyframes typingPulse {
                 0%, 80%, 100% { transform: scale(0.8); opacity: 0.5; }
                 40% { transform: scale(1); opacity: 1; }
@@ -338,28 +283,36 @@ class SchunkeInterface {
         document.head.appendChild(style);
     }
 
-    // ---------- Ambient HUD animations (unrelated to voice) ----------
 
     startSystemAnimations() {
+        // Add some dynamic visual effects
         this.createFloatingParticles();
         this.animateStatusDots();
     }
 
     initializeHUDAnimations() {
+        // Animate loading bars
         this.animateLoadingBars();
+        
+        // Animate chart bars
         this.animateChartBars();
+        
+        // Animate data displays
         this.animateDataDisplays();
     }
 
     startDynamicUpdates() {
+        // Update loading progress
         setInterval(() => {
             this.updateLoadingProgress();
         }, 2000);
-
+        
+        // Update chart data
         setInterval(() => {
             this.updateChartData();
         }, 3000);
-
+        
+        // Update log entries
         setInterval(() => {
             this.addLogEntry();
         }, 5000);
@@ -367,10 +320,10 @@ class SchunkeInterface {
 
     animateLoadingBars() {
         const progressBars = document.querySelectorAll('.loading-progress');
-        progressBars.forEach((bar) => {
+        progressBars.forEach((bar, index) => {
             const currentWidth = parseInt(bar.style.width);
             const targetWidth = Math.floor(Math.random() * 30) + 70; // 70-100%
-
+            
             let width = currentWidth;
             const interval = setInterval(() => {
                 if (width < targetWidth) {
@@ -395,9 +348,10 @@ class SchunkeInterface {
 
     animateDataDisplays() {
         const circles = document.querySelectorAll('.display-circle .circle-label');
-
+        const labels = ['DY', '53', 'PH', 'KL'];
+        
         setInterval(() => {
-            circles.forEach((circle) => {
+            circles.forEach((circle, index) => {
                 if (Math.random() > 0.7) {
                     circle.textContent = Math.floor(Math.random() * 100).toString();
                 }
@@ -418,13 +372,11 @@ class SchunkeInterface {
     updateChartData() {
         const bars = document.querySelectorAll('.bar');
         const labels = document.querySelectorAll('.chart-labels span');
-
+        
         bars.forEach((bar, index) => {
             const newHeight = Math.floor(Math.random() * 50) + 30; // 30-80%
             bar.style.height = newHeight + '%';
-            if (labels[index]) {
-                labels[index].textContent = newHeight;
-            }
+            labels[index].textContent = newHeight;
         });
     }
 
@@ -432,23 +384,25 @@ class SchunkeInterface {
         const logContent = document.querySelector('.log-content');
         const logEntries = [
             '[SYSTEM] SCHUNKE.IA INITIALIZED',
-            '[AUDIO] WAKE-WORD LISTENER ACTIVE',
+            '[AUDIO] VOICE RECOGNITION ACTIVE',
             '[NETWORK] ELEVENLABS CONNECTED',
             '[STATUS] ALL SYSTEMS OPERATIONAL',
-            '[READY] AWAITING "SCHUNKE"',
+            '[READY] AWAITING USER INPUT',
             '[SCAN] SYSTEM INTEGRITY CHECK',
+            '[DATA] PROCESSING USER QUERY',
             '[AI] NEURAL NETWORK ACTIVE',
             '[SECURITY] ENCRYPTION ENABLED',
             '[MONITOR] REAL-TIME ANALYSIS'
         ];
-
+        
         const randomEntry = logEntries[Math.floor(Math.random() * logEntries.length)];
         const logLine = document.createElement('div');
         logLine.className = 'log-line';
         logLine.textContent = randomEntry;
-
+        
         logContent.appendChild(logLine);
-
+        
+        // Keep only last 8 entries
         const entries = logContent.querySelectorAll('.log-line');
         if (entries.length > 8) {
             entries[0].remove();
@@ -458,6 +412,7 @@ class SchunkeInterface {
     createFloatingParticles() {
         const container = document.querySelector('.floating-elements');
         if (!container) {
+            // No .floating-elements element in this HTML — nothing to do.
             return;
         }
 
@@ -467,9 +422,10 @@ class SchunkeInterface {
             particle.style.left = Math.random() * 100 + '%';
             particle.style.animationDuration = (Math.random() * 5 + 5) + 's';
             particle.style.animationDelay = Math.random() * 2 + 's';
-
+            
             container.appendChild(particle);
-
+            
+            // Remove particle after animation
             setTimeout(() => {
                 if (particle.parentNode) {
                     particle.parentNode.removeChild(particle);
@@ -550,14 +506,20 @@ class N8NIntegration {
 document.addEventListener('DOMContentLoaded', () => {
     const schunke = new SchunkeInterface();
     const n8n = new N8NIntegration();
-
+    
+    // Make n8n integration available globally
     window.schunkeInterface = schunke;
     window.n8nIntegration = n8n;
+    
+    // System initialized - no additional message needed
 });
 
-// Keyboard shortcut: Escape ends an active conversation
+// Add some keyboard shortcuts
 document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && window.schunkeInterface && window.schunkeInterface.isConversationActive) {
-        window.schunkeInterface.endConversation();
+    // Escape to stop listening (fallback native recognition, if it was ever started)
+    if (e.key === 'Escape' && window.schunkeInterface && window.schunkeInterface.isListening) {
+        if (window.schunkeInterface.recognition) {
+            window.schunkeInterface.recognition.stop();
+        }
     }
 });
