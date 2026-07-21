@@ -21,7 +21,16 @@ const SCHUNKE_AGENT_ID = "agent_5601kxpwvjzhfzqa2dakf1h64bn5";
 
 // Phonetic variants to catch, since browser speech-to-text may transcribe
 // "Schunke" in a few different ways depending on accent/mic quality.
-const WAKE_WORDS = ["schunke", "chunke", "shunke", "xunke", "chunk", "chunque"];
+// Word-boundary regex so we don't false-match a substring inside an
+// unrelated word.
+const WAKE_WORDS = ["schunke", "chunke", "shunke", "xunke", "chunque"];
+const WAKE_WORD_REGEX = new RegExp(`\\b(${WAKE_WORDS.join("|")})\\b`, "i");
+
+// How long the conversation can sit idle (no new message from either side)
+// before we automatically hang up and go back to only listening for the
+// wake word. Without this, one "Schunke" would open a conversation that
+// stays live forever and reacts to everything you say afterwards.
+const CONVERSATION_IDLE_TIMEOUT_MS = 12000;
 
 class SchunkeInterface {
     constructor() {
@@ -36,6 +45,7 @@ class SchunkeInterface {
 
         this.conversation = null;
         this.isConversationActive = false;
+        this.inactivityTimer = null;
 
         this.initializeInterface();
         this.setupEventListeners();
@@ -77,7 +87,9 @@ class SchunkeInterface {
 
         this.wakeWordRecognition = new SpeechRecognition();
         this.wakeWordRecognition.continuous = true;
-        this.wakeWordRecognition.interimResults = true;
+        // Only final results — interim (partial) results are faster but
+        // noisier, and were likely causing false positives.
+        this.wakeWordRecognition.interimResults = false;
         this.wakeWordRecognition.lang = 'pt-BR';
 
         this.wakeWordRecognition.onresult = (event) => {
@@ -85,7 +97,7 @@ class SchunkeInterface {
             const transcript = lastResult[0].transcript.toLowerCase();
 
             if (this.containsWakeWord(transcript)) {
-                this.addSystemMessage(`[WAKE] Palavra de ativação detectada`);
+                this.addSystemMessage(`[WAKE] "${transcript.trim()}" — palavra de ativação detectada`);
                 // Stop wake-word listening first so it releases the
                 // microphone cleanly before the real conversation grabs it
                 // (see onend below, which actually starts the conversation).
@@ -134,7 +146,7 @@ class SchunkeInterface {
     }
 
     containsWakeWord(transcript) {
-        return WAKE_WORDS.some(word => transcript.includes(word));
+        return WAKE_WORD_REGEX.test(transcript);
     }
 
     // ---------- Real ElevenLabs conversation ----------
@@ -153,13 +165,15 @@ class SchunkeInterface {
                     this.isConversationActive = true;
                     this.voiceButton.className = 'voice-button listening';
                     this.voiceIndicator.classList.add('active');
-                    this.updateVoiceStatus('CONVERSA ATIVA — DIGA "ENCERRAR" OU CLIQUE PRA SAIR');
+                    this.updateVoiceStatus('CONVERSA ATIVA');
                     this.addSystemMessage('[AUDIO] CONVERSA INICIADA COM SCHUNKE.IA');
+                    this.resetInactivityTimer();
                 },
 
                 onDisconnect: () => {
                     this.isConversationActive = false;
                     this.conversation = null;
+                    this.clearInactivityTimer();
                     this.voiceButton.className = 'voice-button';
                     this.voiceIndicator.classList.remove('active');
                     this.addSystemMessage('[AUDIO] CONVERSA ENCERRADA');
@@ -172,6 +186,10 @@ class SchunkeInterface {
                     } else {
                         this.addSchunkeMessage(message.message);
                     }
+                    // Any new message (yours or the agent's) means the
+                    // conversation is still active — push the auto-hangup
+                    // timer back out.
+                    this.resetInactivityTimer();
                 },
 
                 onError: (error) => {
@@ -179,6 +197,7 @@ class SchunkeInterface {
                     this.addSystemMessage('[ERROR] FALHA NA CONVERSA COM SCHUNKE.IA');
                     this.isConversationActive = false;
                     this.conversation = null;
+                    this.clearInactivityTimer();
                     this.voiceButton.className = 'voice-button';
                     this.startWakeWordListening();
                 },
@@ -200,6 +219,21 @@ class SchunkeInterface {
                 console.error('Error ending conversation:', error);
             }
             this.conversation = null;
+        }
+    }
+
+    resetInactivityTimer() {
+        this.clearInactivityTimer();
+        this.inactivityTimer = setTimeout(() => {
+            this.addSystemMessage('[AUDIO] SILÊNCIO DETECTADO — ENCERRANDO CONVERSA AUTOMATICAMENTE');
+            this.endConversation();
+        }, CONVERSATION_IDLE_TIMEOUT_MS);
+    }
+
+    clearInactivityTimer() {
+        if (this.inactivityTimer) {
+            clearTimeout(this.inactivityTimer);
+            this.inactivityTimer = null;
         }
     }
 
