@@ -574,11 +574,14 @@ body {
     animation: voicePulse 0.5s infinite;
 }
 
-/* ElevenLabs Widget - hidden; controlled via widget.startConversation() /
-   widget.endConversation() from script.js, per ElevenLabs' documented
-   "custom trigger button" pattern. display:none does not block the JS API. */
+/* ElevenLabs Widget - shown inline (not floating), styled to match JARVIS.
+   We no longer hide it and drive it via startConversation()/endConversation():
+   that API is not reliably exposed by this widget build. Showing the
+   vendor's own button guarantees the mic/call button always works. */
 elevenlabs-convai {
-    display: none;
+    position: static !important;
+    display: inline-flex !important;
+    margin: 0 auto;
 }
 
 /* Animations */
