@@ -6,17 +6,32 @@
 //      talks to ElevenLabs — it's just local, free wake-word spotting.
 //   2. When the wake word is heard, that listener stops (releasing the mic)
 //      and we start a REAL ElevenLabs conversation using the official
-//      @elevenlabs/client SDK (Conversation.startSession).
+//      @elevenlabs/client SDK (Conversation.startSession). This is a
+//      documented, code-controllable API — unlike the <elevenlabs-convai>
+//      widget we used before, which did not reliably expose a JS API to
+//      trigger on this build.
 //   3. When that conversation ends, we go back to step 1 automatically.
+//
+// This is why script.js is loaded as a module (see index.html) — it needs
+// to `import` the SDK from a CDN.
 
 import { Conversation } from "https://cdn.jsdelivr.net/npm/@elevenlabs/client/+esm";
 
 const SCHUNKE_AGENT_ID = "agent_5601kxpwvjzhfzqa2dakf1h64bn5";
 
+// Phonetic variants to catch, since browser speech-to-text may transcribe
+// "Schunke" in a few different ways depending on accent/mic quality.
+// Word-boundary regex so we don't false-match a substring inside an
+// unrelated word.
 const WAKE_WORDS = ["schunke", "chunke", "shunke", "xunke", "chunque"];
 const WAKE_WORD_REGEX = new RegExp(`\\b(${WAKE_WORDS.join("|")})\\b`, "i");
 
-// Generous timeout (30s) so it doesn't cut off mid-thought.
+// How long the conversation can sit idle (no new message from either side)
+// before we automatically hang up and go back to only listening for the
+// wake word. Without this, one "Schunke" would open a conversation that
+// stays live forever and reacts to everything you say afterwards.
+// Kept generous (30s) so it doesn't cut off mid-thought or during a normal
+// pause — only a genuinely abandoned conversation triggers it.
 const CONVERSATION_IDLE_TIMEOUT_MS = 30000;
 
 class SchunkeInterface {
@@ -47,6 +62,8 @@ class SchunkeInterface {
     }
 
     setupEventListeners() {
+        // Manual click also works, in case someone doesn't want to rely on
+        // the wake word (or is in a noisy environment).
         this.voiceButton.addEventListener('click', () => {
             if (this.isConversationActive) {
                 this.endConversation();
@@ -59,6 +76,8 @@ class SchunkeInterface {
         });
     }
 
+    // ---------- Always-on wake-word listening ----------
+
     initializeWakeWordListener() {
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
@@ -70,6 +89,8 @@ class SchunkeInterface {
 
         this.wakeWordRecognition = new SpeechRecognition();
         this.wakeWordRecognition.continuous = true;
+        // Only final results — interim (partial) results are faster but
+        // noisier, and were likely causing false positives.
         this.wakeWordRecognition.interimResults = false;
         this.wakeWordRecognition.lang = 'pt-BR';
 
@@ -79,12 +100,17 @@ class SchunkeInterface {
 
             if (this.containsWakeWord(transcript)) {
                 this.addSystemMessage(`[WAKE] "${transcript.trim()}" — palavra de ativação detectada`);
+                // Stop wake-word listening first so it releases the
+                // microphone cleanly before the real conversation grabs it
+                // (see onend below, which actually starts the conversation).
                 this._pendingStartConversation = true;
                 this.wakeWordRecognition.stop();
             }
         };
 
         this.wakeWordRecognition.onerror = (event) => {
+            // 'no-speech' and 'aborted' fire constantly in always-on mode —
+            // that's expected, not a real error.
             if (event.error !== 'no-speech' && event.error !== 'aborted') {
                 console.warn('Wake-word listener error:', event.error);
             }
@@ -98,6 +124,8 @@ class SchunkeInterface {
                 this._pendingStartConversation = false;
                 this.startConversation();
             } else if (!this.isConversationActive) {
+                // Browsers auto-stop recognition after a period of silence —
+                // restart it so it's effectively "always listening".
                 setTimeout(() => this.startWakeWordListening(), 300);
             }
         };
@@ -122,6 +150,8 @@ class SchunkeInterface {
     containsWakeWord(transcript) {
         return WAKE_WORD_REGEX.test(transcript);
     }
+
+    // ---------- Real ElevenLabs conversation ----------
 
     async startConversation() {
         if (this.isConversationActive) return;
@@ -158,10 +188,17 @@ class SchunkeInterface {
                     } else {
                         this.addSchunkeMessage(message.message);
                     }
+                    // Any new message (yours or the agent's) means the
+                    // conversation is still active — push the auto-hangup
+                    // timer back out.
                     this.resetInactivityTimer();
                 },
 
                 onModeChange: () => {
+                    // Fires when the agent switches between "speaking" and
+                    // "listening" — also counts as activity, so a longer
+                    // agent response doesn't get cut off mid-sentence while
+                    // waiting for the next discrete message.
                     this.resetInactivityTimer();
                 },
 
@@ -214,6 +251,8 @@ class SchunkeInterface {
         const statusText = this.voiceStatus.querySelector('.status-text');
         statusText.textContent = text;
     }
+
+    // ---------- Chat log rendering ----------
 
     addUserMessage(message) {
         const messageElement = document.createElement('div');
@@ -284,13 +323,23 @@ class SchunkeInterface {
     addTypingIndicator() {
         const style = document.createElement('style');
         style.textContent = `
-            .typing-dots { display: flex; gap: 4px; align-items: center; }
-            .typing-dots span {
-                width: 8px; height: 8px; background: var(--hud-blue);
-                border-radius: 50%; animation: typingPulse 1.4s infinite ease-in-out;
+            .typing-dots {
+                display: flex;
+                gap: 4px;
+                align-items: center;
             }
+
+            .typing-dots span {
+                width: 8px;
+                height: 8px;
+                background: var(--hud-blue);
+                border-radius: 50%;
+                animation: typingPulse 1.4s infinite ease-in-out;
+            }
+
             .typing-dots span:nth-child(1) { animation-delay: -0.32s; }
             .typing-dots span:nth-child(2) { animation-delay: -0.16s; }
+
             @keyframes typingPulse {
                 0%, 80%, 100% { transform: scale(0.8); opacity: 0.5; }
                 40% { transform: scale(1); opacity: 1; }
@@ -298,6 +347,8 @@ class SchunkeInterface {
         `;
         document.head.appendChild(style);
     }
+
+    // ---------- Ambient HUD animations (unrelated to voice) ----------
 
     startSystemAnimations() {
         this.createFloatingParticles();
@@ -311,20 +362,33 @@ class SchunkeInterface {
     }
 
     startDynamicUpdates() {
-        setInterval(() => { this.updateLoadingProgress(); }, 2000);
-        setInterval(() => { this.updateChartData(); }, 3000);
-        setInterval(() => { this.addLogEntry(); }, 5000);
+        setInterval(() => {
+            this.updateLoadingProgress();
+        }, 2000);
+
+        setInterval(() => {
+            this.updateChartData();
+        }, 3000);
+
+        setInterval(() => {
+            this.addLogEntry();
+        }, 5000);
     }
 
     animateLoadingBars() {
         const progressBars = document.querySelectorAll('.loading-progress');
         progressBars.forEach((bar) => {
             const currentWidth = parseInt(bar.style.width);
-            const targetWidth = Math.floor(Math.random() * 30) + 70;
+            const targetWidth = Math.floor(Math.random() * 30) + 70; // 70-100%
+
             let width = currentWidth;
             const interval = setInterval(() => {
-                if (width < targetWidth) { width += 2; bar.style.width = width + '%'; }
-                else { clearInterval(interval); }
+                if (width < targetWidth) {
+                    width += 2;
+                    bar.style.width = width + '%';
+                } else {
+                    clearInterval(interval);
+                }
             }, 100);
         });
     }
@@ -333,7 +397,7 @@ class SchunkeInterface {
         const bars = document.querySelectorAll('.bar');
         bars.forEach((bar, index) => {
             setInterval(() => {
-                const newHeight = Math.floor(Math.random() * 40) + 50;
+                const newHeight = Math.floor(Math.random() * 40) + 50; // 50-90%
                 bar.style.height = newHeight + '%';
             }, 2000 + (index * 500));
         });
@@ -341,6 +405,7 @@ class SchunkeInterface {
 
     animateDataDisplays() {
         const circles = document.querySelectorAll('.display-circle .circle-label');
+
         setInterval(() => {
             circles.forEach((circle) => {
                 if (Math.random() > 0.7) {
@@ -354,7 +419,7 @@ class SchunkeInterface {
         const progressBars = document.querySelectorAll('.loading-progress');
         progressBars.forEach(bar => {
             const currentWidth = parseInt(bar.style.width);
-            const change = (Math.random() - 0.5) * 10;
+            const change = (Math.random() - 0.5) * 10; // -5 to +5
             const newWidth = Math.max(20, Math.min(100, currentWidth + change));
             bar.style.width = newWidth + '%';
         });
@@ -363,10 +428,13 @@ class SchunkeInterface {
     updateChartData() {
         const bars = document.querySelectorAll('.bar');
         const labels = document.querySelectorAll('.chart-labels span');
+
         bars.forEach((bar, index) => {
-            const newHeight = Math.floor(Math.random() * 50) + 30;
+            const newHeight = Math.floor(Math.random() * 50) + 30; // 30-80%
             bar.style.height = newHeight + '%';
-            if (labels[index]) { labels[index].textContent = newHeight; }
+            if (labels[index]) {
+                labels[index].textContent = newHeight;
+            }
         });
     }
 
@@ -383,27 +451,39 @@ class SchunkeInterface {
             '[SECURITY] ENCRYPTION ENABLED',
             '[MONITOR] REAL-TIME ANALYSIS'
         ];
+
         const randomEntry = logEntries[Math.floor(Math.random() * logEntries.length)];
         const logLine = document.createElement('div');
         logLine.className = 'log-line';
         logLine.textContent = randomEntry;
+
         logContent.appendChild(logLine);
+
         const entries = logContent.querySelectorAll('.log-line');
-        if (entries.length > 8) { entries[0].remove(); }
+        if (entries.length > 8) {
+            entries[0].remove();
+        }
     }
 
     createFloatingParticles() {
         const container = document.querySelector('.floating-elements');
-        if (!container) { return; }
+        if (!container) {
+            return;
+        }
+
         setInterval(() => {
             const particle = document.createElement('div');
             particle.className = 'particle';
             particle.style.left = Math.random() * 100 + '%';
             particle.style.animationDuration = (Math.random() * 5 + 5) + 's';
             particle.style.animationDelay = Math.random() * 2 + 's';
+
             container.appendChild(particle);
+
             setTimeout(() => {
-                if (particle.parentNode) { particle.parentNode.removeChild(particle); }
+                if (particle.parentNode) {
+                    particle.parentNode.removeChild(particle);
+                }
             }, 10000);
         }, 3000);
     }
@@ -432,10 +512,11 @@ class SchunkeInterface {
     }
 }
 
+// n8n Integration Functions
 class N8NIntegration {
     constructor() {
-        this.webhookUrl = '';
-        this.apiKey = '';
+        this.webhookUrl = ''; // Set your n8n webhook URL here
+        this.apiKey = ''; // Set your n8n API key here
     }
 
     async sendToN8N(message, context = {}) {
@@ -443,6 +524,7 @@ class N8NIntegration {
             console.warn('n8n webhook URL not configured');
             return null;
         }
+
         try {
             const response = await fetch(this.webhookUrl, {
                 method: 'POST',
@@ -450,9 +532,17 @@ class N8NIntegration {
                     'Content-Type': 'application/json',
                     'Authorization': this.apiKey ? `Bearer ${this.apiKey}` : ''
                 },
-                body: JSON.stringify({ message, timestamp: new Date().toISOString(), context })
+                body: JSON.stringify({
+                    message: message,
+                    timestamp: new Date().toISOString(),
+                    context: context
+                })
             });
-            if (!response.ok) { throw new Error(`HTTP error! status: ${response.status}`); }
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
             return await response.json();
         } catch (error) {
             console.error('Error sending to n8n:', error);
@@ -466,13 +556,16 @@ class N8NIntegration {
     }
 }
 
+// Initialize the interface when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     const schunke = new SchunkeInterface();
     const n8n = new N8NIntegration();
+
     window.schunkeInterface = schunke;
     window.n8nIntegration = n8n;
 });
 
+// Keyboard shortcut: Escape ends an active conversation
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && window.schunkeInterface && window.schunkeInterface.isConversationActive) {
         window.schunkeInterface.endConversation();
