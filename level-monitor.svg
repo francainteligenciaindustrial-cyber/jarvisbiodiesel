@@ -1,0 +1,125 @@
+<svg viewBox="0 0 420 420" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="sweepGrad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#00d4ff" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#00d4ff" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="glowLM" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="1.8" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <style>
+      .ring        { fill: none; stroke: #00d4ff; stroke-width: 1.2; opacity: 0.55; }
+      .ring-faint  { fill: none; stroke: #00d4ff; stroke-width: 0.8; opacity: 0.25; }
+      .tick-major  { stroke: #00d4ff; stroke-width: 1.4; opacity: 0.7; }
+      .tick-minor  { stroke: #00d4ff; stroke-width: 0.7; opacity: 0.3; }
+      .tank-outline{ fill: rgba(0,212,255,0.05); stroke: #00d4ff; stroke-width: 1.6; filter: url(#glowLM); }
+      .tank-fill   { fill: #00ffff; opacity: 0.4; }
+      .needle      { stroke: #00ff88; stroke-width: 2; filter: url(#glowLM); }
+      .needle-hub  { fill: #00ff88; }
+      .crosshair   { stroke: #00d4ff; stroke-width: 0.6; opacity: 0.25; }
+      .scale-label { fill: #00d4ff; font-family: 'Orbitron', monospace; font-size: 9px; opacity: 0.55; }
+      .digital     { fill: #00ff88; font-family: 'Orbitron', monospace; font-size: 15px; opacity: 0.85; }
+      .digital-lbl { fill: #00d4ff; font-family: 'Orbitron', monospace; font-size: 7px; opacity: 0.5; }
+      .bar         { fill: #00d4ff; }
+      .mini-ring   { fill: none; stroke: #00d4ff; stroke-width: 1; opacity: 0.5; }
+
+      @keyframes sweep { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+      @keyframes fillPulse { 0%, 100% { opacity: 0.35; } 50% { opacity: 0.55; } }
+      @keyframes ringPulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 0.85; } }
+      @keyframes barPulse { 0%, 100% { opacity: 0.3; } 50% { opacity: 0.8; } }
+      @keyframes digitalFlicker { 0%, 100% { opacity: 0.85; } 48% { opacity: 0.4; } 52% { opacity: 0.95; } }
+      @keyframes miniSweep { from { transform: rotate(0deg); } to { transform: rotate(-360deg); } }
+
+      .sweep-wedge { transform-origin: 210px 210px; animation: sweep 6s linear infinite; }
+      .tank-fill   { animation: fillPulse 3.5s ease-in-out infinite; }
+      .ring-active { animation: ringPulse 2.6s ease-in-out infinite; }
+      .digital     { animation: digitalFlicker 3s ease-in-out infinite; }
+      .mini-sweep  { transform-origin: 335px 95px; animation: miniSweep 8s linear infinite; }
+      .bar1 { animation: barPulse 2.2s ease-in-out infinite; }
+      .bar2 { animation: barPulse 2.2s ease-in-out infinite 0.3s; }
+      .bar3 { animation: barPulse 2.2s ease-in-out infinite 0.6s; }
+      .bar4 { animation: barPulse 2.2s ease-in-out infinite 0.9s; }
+      .bar5 { animation: barPulse 2.2s ease-in-out infinite 1.2s; }
+      .bar6 { animation: barPulse 2.2s ease-in-out infinite 1.5s; }
+    </style>
+  </defs>
+
+  <!-- outer scanning rings -->
+  <circle class="ring" cx="210" cy="210" r="195"/>
+  <circle class="ring-faint" cx="210" cy="210" r="150"/>
+  <circle class="ring-faint" cx="210" cy="210" r="105"/>
+  <circle class="ring-active" cx="210" cy="210" r="60"/>
+
+  <!-- numeric scale around the rim -->
+  <text class="scale-label" x="203" y="26">0</text>
+  <text class="scale-label" x="388" y="216">25</text>
+  <text class="scale-label" x="197" y="404">50</text>
+  <text class="scale-label" x="14" y="216">75</text>
+
+  <!-- major/minor tick marks around the rim -->
+  <g>
+    <line class="tick-major" x1="210" y1="15" x2="210" y2="32"/>
+    <line class="tick-major" x1="210" y1="388" x2="210" y2="405"/>
+    <line class="tick-major" x1="15" y1="210" x2="32" y2="210"/>
+    <line class="tick-major" x1="388" y1="210" x2="405" y2="210"/>
+    <line class="tick-minor" x1="245" y1="19" x2="240" y2="35"/>
+    <line class="tick-minor" x1="175" y1="19" x2="180" y2="35"/>
+    <line class="tick-minor" x1="245" y1="401" x2="240" y2="385"/>
+    <line class="tick-minor" x1="175" y1="401" x2="180" y2="385"/>
+  </g>
+
+  <!-- crosshair -->
+  <line class="crosshair" x1="30" y1="210" x2="390" y2="210"/>
+  <line class="crosshair" x1="210" y1="30" x2="210" y2="390"/>
+
+  <!-- rotating scan wedge -->
+  <g class="sweep-wedge">
+    <path d="M 210 210 L 210 15 A 195 195 0 0 1 260 28 Z" fill="url(#sweepGrad)"/>
+  </g>
+
+  <!-- history bars (recent readings), lower-left arc -->
+  <g>
+    <rect class="bar bar1" x="55" y="330" width="6" height="14"/>
+    <rect class="bar bar2" x="65" y="322" width="6" height="22"/>
+    <rect class="bar bar3" x="75" y="332" width="6" height="12"/>
+    <rect class="bar bar4" x="85" y="316" width="6" height="28"/>
+    <rect class="bar bar5" x="95" y="326" width="6" height="18"/>
+    <rect class="bar bar6" x="105" y="310" width="6" height="34"/>
+  </g>
+  <text class="digital-lbl" x="55" y="354">HIST.</text>
+
+  <!-- mini secondary gauge, upper-right -->
+  <g>
+    <circle class="mini-ring" cx="335" cy="95" r="26"/>
+    <circle class="mini-ring" cx="335" cy="95" r="18"/>
+    <g class="mini-sweep">
+      <line class="tick-minor" x1="335" y1="95" x2="335" y2="72"/>
+    </g>
+  </g>
+  <text class="digital-lbl" x="316" y="128">TEMP.</text>
+
+  <!-- central tank level readout -->
+  <g>
+    <ellipse class="tank-outline" cx="210" cy="160" rx="27" ry="7"/>
+    <rect class="tank-outline" x="183" y="160" width="54" height="82" rx="3"/>
+    <rect class="tank-fill" x="186" y="190" width="48" height="49"/>
+    <ellipse class="tank-outline" cx="210" cy="242" rx="27" ry="7"/>
+    <line class="tick-minor" x1="183" y1="180" x2="237" y2="180"/>
+    <line class="tick-minor" x1="183" y1="200" x2="237" y2="200"/>
+    <line class="tick-minor" x1="183" y1="220" x2="237" y2="220"/>
+  </g>
+
+  <!-- digital readout below the tank -->
+  <text class="digital" x="185" y="278" text-anchor="middle" transform="translate(25,0)">78%</text>
+  <text class="digital-lbl" x="210" y="292" text-anchor="middle">NÍVEL T-02</text>
+
+  <!-- level needle indicator (fixed angle, points to current reading) -->
+  <g transform="rotate(35 210 210)">
+    <line class="needle" x1="210" y1="210" x2="210" y2="70"/>
+  </g>
+  <circle class="needle-hub" cx="210" cy="210" r="4"/>
+</svg>

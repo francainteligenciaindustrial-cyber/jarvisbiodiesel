@@ -1,0 +1,160 @@
+<svg viewBox="0 0 300 400" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="glowRX" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="2" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <style>
+      .col-body   { fill: rgba(0, 212, 255, 0.05); stroke: #00d4ff; stroke-width: 1.6; filter: url(#glowRX); }
+      .col-plate  { stroke: #00d4ff; stroke-width: 0.8; opacity: 0.55; }
+      .col-cap    { fill: rgba(0, 255, 255, 0.12); stroke: #00ffff; stroke-width: 1.4; filter: url(#glowRX); }
+      .pipe       { fill: none; stroke: #00d4ff; stroke-width: 1.3; opacity: 0.55; }
+      .pipe-glow  { fill: none; stroke: #00ffff; stroke-width: 0.8; opacity: 0.9; stroke-dasharray: 4 6; }
+      .vessel     { fill: rgba(0, 212, 255, 0.06); stroke: #00d4ff; stroke-width: 1.4; filter: url(#glowRX); }
+      .bubble     { fill: #00ffff; }
+      .ring-glow  { fill: none; stroke: #00ffff; stroke-width: 1; opacity: 0.3; }
+      .tick       { stroke: #00d4ff; stroke-width: 0.6; opacity: 0.4; }
+      .gauge-ring { fill: rgba(0,0,0,0.4); stroke: #00d4ff; stroke-width: 1; }
+      .gauge-needle { stroke: #00ff88; stroke-width: 1.2; }
+      .gauge-hub  { fill: #00ff88; }
+      .ladder-rail{ stroke: #00d4ff; stroke-width: 0.8; opacity: 0.4; }
+      .ladder-rung{ stroke: #00d4ff; stroke-width: 0.6; opacity: 0.35; }
+      .platform   { stroke: #00d4ff; stroke-width: 0.8; opacity: 0.45; fill: rgba(0,212,255,0.04); }
+      .label      { fill: #00ff88; font-family: 'Orbitron', monospace; font-size: 6px; opacity: 0.7; }
+      .particle   { fill: #00d4ff; }
+
+      @keyframes rise {
+        0%   { transform: translateY(0);    opacity: 0; }
+        10%  { opacity: 0.9; }
+        90%  { opacity: 0.9; }
+        100% { transform: translateY(-230px); opacity: 0; }
+      }
+      @keyframes flowDash { to { stroke-dashoffset: -40; } }
+      @keyframes plateGlow { 0%, 100% { opacity: 0.35; } 50% { opacity: 0.75; } }
+      @keyframes capGlow { 0%, 100% { opacity: 0.5; } 50% { opacity: 0.9; } }
+      @keyframes needleSweep { 0%, 100% { transform: rotate(-18deg); } 50% { transform: rotate(18deg); } }
+      @keyframes drift {
+        0%   { transform: translate(0, 0); opacity: 0; }
+        20%  { opacity: 0.6; }
+        80%  { opacity: 0.6; }
+        100% { transform: translate(14px, -30px); opacity: 0; }
+      }
+
+      .b1 { animation: rise 5s linear infinite; }
+      .b2 { animation: rise 5s linear infinite 1s; }
+      .b3 { animation: rise 5s linear infinite 2s; }
+      .b4 { animation: rise 4.2s linear infinite 2.8s; }
+      .b5 { animation: rise 4.6s linear infinite 0.4s; }
+      .b6 { animation: rise 5.4s linear infinite 3.4s; }
+      .flow { animation: flowDash 1.4s linear infinite; }
+      .plate1 { animation: plateGlow 3s ease-in-out infinite; }
+      .plate2 { animation: plateGlow 3s ease-in-out infinite 0.8s; }
+      .plate3 { animation: plateGlow 3s ease-in-out infinite 1.6s; }
+      .top-cap { animation: capGlow 2.4s ease-in-out infinite; }
+      .needle  { transform-origin: 245px 190px; animation: needleSweep 4s ease-in-out infinite; }
+      .p1 { animation: drift 6s linear infinite; }
+      .p2 { animation: drift 7s linear infinite 2s; }
+      .p3 { animation: drift 5.5s linear infinite 4s; }
+    </style>
+  </defs>
+
+  <!-- faint ground grid for depth -->
+  <ellipse class="ring-glow" cx="150" cy="360" rx="120" ry="16"/>
+  <ellipse class="ring-glow" cx="150" cy="360" rx="85" ry="11"/>
+
+  <!-- ambient drifting particles -->
+  <circle class="particle p1" cx="70" cy="200" r="1.4"/>
+  <circle class="particle p2" cx="230" cy="150" r="1.2"/>
+  <circle class="particle p3" cx="90" cy="120" r="1"/>
+
+  <!-- access ladder on the left of the column -->
+  <line class="ladder-rail" x1="100" y1="270" x2="100" y2="120"/>
+  <line class="ladder-rail" x1="106" y1="270" x2="106" y2="120"/>
+  <line class="ladder-rung" x1="100" y1="130" x2="106" y2="130"/>
+  <line class="ladder-rung" x1="100" y1="150" x2="106" y2="150"/>
+  <line class="ladder-rung" x1="100" y1="170" x2="106" y2="170"/>
+  <line class="ladder-rung" x1="100" y1="190" x2="106" y2="190"/>
+  <line class="ladder-rung" x1="100" y1="210" x2="106" y2="210"/>
+  <line class="ladder-rung" x1="100" y1="230" x2="106" y2="230"/>
+  <line class="ladder-rung" x1="100" y1="250" x2="106" y2="250"/>
+
+  <!-- mid-column access platform -->
+  <path class="platform" d="M 106 190 L 96 190 L 96 197 L 106 197 Z"/>
+
+  <!-- side feed vessel (reboiler) -->
+  <ellipse class="vessel" cx="95" cy="330" rx="34" ry="10"/>
+  <rect class="vessel" x="61" y="300" width="68" height="30" rx="4"/>
+  <ellipse class="vessel" cx="95" cy="300" rx="34" ry="10"/>
+  <circle class="bubble" cx="95" cy="315" r="2" opacity="0.6"/>
+  <text class="label" x="66" y="318">REBOILER</text>
+
+  <!-- transfer pipe from vessel into column -->
+  <path class="pipe" d="M 129 308 L 150 308 L 150 280"/>
+  <path class="pipe-glow flow" d="M 129 308 L 150 308 L 150 280"/>
+
+  <!-- main distillation column -->
+  <ellipse class="col-cap" cx="150" cy="280" rx="42" ry="11"/>
+  <rect class="col-body" x="108" y="90" width="84" height="190" rx="6"/>
+  <ellipse class="col-cap" cx="150" cy="90" rx="42" ry="11"/>
+
+  <!-- plates (glowing rings, sieve trays) -->
+  <line class="col-plate plate1" x1="108" y1="230" x2="192" y2="230"/>
+  <line class="col-plate plate2" x1="108" y1="190" x2="192" y2="190"/>
+  <line class="col-plate plate3" x1="108" y1="150" x2="192" y2="150"/>
+  <line class="col-plate" x1="108" y1="110" x2="192" y2="110"/>
+
+  <!-- pressure gauge mounted on the column -->
+  <g>
+    <circle class="gauge-ring" cx="215" cy="200" r="14"/>
+    <line class="tick" x1="215" y1="188" x2="215" y2="192"/>
+    <line class="tick" x1="227" y1="200" x2="223" y2="200"/>
+    <line class="tick" x1="203" y1="200" x2="207" y2="200"/>
+    <line class="gauge-needle needle" x1="215" y1="200" x2="215" y2="190"/>
+    <circle class="gauge-hub" cx="215" cy="200" r="1.6"/>
+    <path class="pipe" d="M 201 200 L 192 200"/>
+  </g>
+  <text class="label" x="200" y="222">PSI</text>
+
+  <!-- rising bubbles through the column -->
+  <g clip-path="url(#colClip)">
+    <circle class="bubble b1" cx="130" cy="270" r="2.6"/>
+    <circle class="bubble b2" cx="150" cy="270" r="3.2"/>
+    <circle class="bubble b3" cx="168" cy="270" r="2.2"/>
+    <circle class="bubble b4" cx="140" cy="270" r="2"/>
+    <circle class="bubble b5" cx="160" cy="270" r="2.8"/>
+    <circle class="bubble b6" cx="122" cy="270" r="1.8"/>
+  </g>
+  <clipPath id="colClip">
+    <rect x="108" y="90" width="84" height="190" rx="6"/>
+  </clipPath>
+
+  <!-- overhead condenser + vent -->
+  <path class="pipe" d="M 150 90 L 150 55 L 205 55 L 205 75"/>
+  <path class="pipe-glow flow" d="M 150 90 L 150 55 L 205 55 L 205 75"/>
+  <circle class="ring-glow top-cap" cx="205" cy="75" r="3.4"/>
+  <rect class="vessel" x="188" y="20" width="34" height="20" rx="3"/>
+  <ellipse class="vessel" cx="205" cy="20" rx="17" ry="5"/>
+  <text class="label" x="186" y="16">CONDENSER</text>
+
+  <!-- secondary return line, opposite side -->
+  <path class="pipe" d="M 108 240 L 75 240 L 75 260"/>
+  <path class="pipe-glow flow" d="M 108 240 L 75 240 L 75 260"/>
+  <circle class="ring-glow" cx="75" cy="264" r="3"/>
+
+  <!-- ambient rings around column, faint -->
+  <ellipse class="ring-glow" cx="150" cy="185" rx="55" ry="14"/>
+  <ellipse class="ring-glow" cx="150" cy="185" rx="66" ry="17"/>
+
+  <text class="label" x="118" y="182">COL-101</text>
+
+  <!-- ground tick marks -->
+  <line class="tick" x1="50" y1="365" x2="250" y2="365"/>
+  <line class="tick" x1="65" y1="365" x2="65" y2="357"/>
+  <line class="tick" x1="105" y1="365" x2="105" y2="357"/>
+  <line class="tick" x1="145" y1="365" x2="145" y2="357"/>
+  <line class="tick" x1="185" y1="365" x2="185" y2="357"/>
+  <line class="tick" x1="225" y1="365" x2="225" y2="357"/>
+</svg>

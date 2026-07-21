@@ -1,0 +1,116 @@
+<svg viewBox="0 0 220 220" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="glowTF" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="1.6" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <style>
+      .grid-ring   { fill: none; stroke: #00d4ff; stroke-width: 0.6; opacity: 0.35; }
+      .grid-spoke  { stroke: #00d4ff; stroke-width: 0.4; opacity: 0.22; }
+      .tank-body   { fill: rgba(0, 212, 255, 0.06); stroke: #00d4ff; stroke-width: 1.3; filter: url(#glowTF); }
+      .tank-rib    { stroke: #00d4ff; stroke-width: 0.45; opacity: 0.5; }
+      .tank-level  { fill: #00ffff; opacity: 0.35; }
+      .tank-cap    { fill: rgba(0, 212, 255, 0.15); stroke: #00d4ff; stroke-width: 1.1; }
+      .pump-dot    { fill: #00ff88; filter: url(#glowTF); }
+      .pipe        { stroke: #00d4ff; stroke-width: 0.9; opacity: 0.5; fill: none; }
+      .pipe-rack   { stroke: #00d4ff; stroke-width: 0.5; opacity: 0.35; }
+      .valve       { fill: rgba(0,212,255,0.15); stroke: #00d4ff; stroke-width: 0.8; }
+      .walkway     { stroke: #00d4ff; stroke-width: 0.5; opacity: 0.3; }
+      .readout     { fill: #00ff88; font-family: 'Orbitron', monospace; font-size: 5px; opacity: 0.75; }
+      .bg-tank     { fill: rgba(0,212,255,0.03); stroke: #00d4ff; stroke-width: 0.6; opacity: 0.4; }
+      .bolt        { fill: #00d4ff; opacity: 0.5; }
+
+      @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+      @keyframes levelPulse { 0%, 100% { opacity: 0.28; } 50% { opacity: 0.52; } }
+      @keyframes pumpBlink { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
+      @keyframes steamRise { 0% { transform: translateY(0); opacity: 0; } 30% { opacity: 0.5; } 100% { transform: translateY(-18px); opacity: 0; } }
+      @keyframes flicker { 0%, 100% { opacity: 0.75; } 45% { opacity: 0.3; } 55% { opacity: 0.9; } }
+
+      .rotor { transform-origin: 110px 172px; animation: spin 50s linear infinite; }
+      .lvl-1 { animation: levelPulse 4s ease-in-out infinite; }
+      .lvl-2 { animation: levelPulse 4s ease-in-out infinite 1.3s; }
+      .lvl-3 { animation: levelPulse 4s ease-in-out infinite 2.6s; }
+      .pump  { animation: pumpBlink 1.6s ease-in-out infinite; }
+      .s1 { animation: steamRise 3.5s ease-out infinite; }
+      .s2 { animation: steamRise 3.5s ease-out infinite 1.2s; }
+      .readout { animation: flicker 2.4s ease-in-out infinite; }
+    </style>
+  </defs>
+
+  <!-- faint background tanks for depth -->
+  <ellipse class="bg-tank" cx="30" cy="55" rx="12" ry="4"/>
+  <rect class="bg-tank" x="20" y="55" width="20" height="22" rx="1"/>
+  <ellipse class="bg-tank" cx="190" cy="60" rx="10" ry="3.5"/>
+  <rect class="bg-tank" x="181" y="60" width="18" height="18" rx="1"/>
+
+  <!-- ground grid, slowly rotating -->
+  <g class="rotor">
+    <ellipse class="grid-ring" cx="110" cy="172" rx="95" ry="20"/>
+    <ellipse class="grid-ring" cx="110" cy="172" rx="70" ry="14"/>
+    <ellipse class="grid-ring" cx="110" cy="172" rx="45" ry="9"/>
+    <ellipse class="grid-ring" cx="110" cy="172" rx="20" ry="4"/>
+    <line class="grid-spoke" x1="15" y1="172" x2="205" y2="172"/>
+    <line class="grid-spoke" x1="35" y1="155" x2="185" y2="189"/>
+    <line class="grid-spoke" x1="35" y1="189" x2="185" y2="155"/>
+    <line class="grid-spoke" x1="65" y1="145" x2="155" y2="199"/>
+    <line class="grid-spoke" x1="65" y1="199" x2="155" y2="145"/>
+  </g>
+
+  <!-- elevated pipe rack connecting the tanks -->
+  <line class="pipe-rack" x1="30" y1="88" x2="190" y2="88"/>
+  <line class="pipe-rack" x1="30" y1="92" x2="190" y2="92"/>
+  <line class="walkway" x1="30" y1="88" x2="30" y2="98"/>
+  <line class="walkway" x1="110" y1="88" x2="110" y2="70"/>
+  <line class="walkway" x1="190" y1="88" x2="190" y2="98"/>
+
+  <!-- manifold to grade -->
+  <path class="pipe" d="M 60 165 L 60 178 L 160 178 L 160 165"/>
+  <path class="pipe" d="M 110 178 L 110 190"/>
+  <rect class="valve" x="105" y="182" width="10" height="6" rx="1"/>
+  <circle class="bolt" cx="60" cy="178" r="1.4"/>
+  <circle class="bolt" cx="160" cy="178" r="1.4"/>
+
+  <!-- Tank 1 -->
+  <g>
+    <ellipse class="tank-cap" cx="55" cy="100" rx="20" ry="6"/>
+    <rect class="tank-body" x="35" y="100" width="40" height="62" rx="2"/>
+    <rect class="tank-level lvl-1" x="37" y="132" width="36" height="28"/>
+    <line class="tank-rib" x1="35" y1="118" x2="75" y2="118"/>
+    <line class="tank-rib" x1="35" y1="140" x2="75" y2="140"/>
+    <line class="tank-rib" x1="55" y1="100" x2="55" y2="162" opacity="0.25"/>
+    <ellipse class="tank-cap" cx="55" cy="162" rx="20" ry="6"/>
+    <circle class="pump-dot pump" cx="55" cy="169" r="2.2"/>
+    <text class="readout" x="42" y="112">T-01</text>
+    <path class="pipe s1" d="M 50 98 q 2 -6 0 -10" stroke="#00ffff" opacity="0.5"/>
+  </g>
+
+  <!-- Tank 2 (tallest, center) -->
+  <g>
+    <ellipse class="tank-cap" cx="110" cy="72" rx="24" ry="7"/>
+    <rect class="tank-body" x="86" y="72" width="48" height="94" rx="2"/>
+    <rect class="tank-level lvl-2" x="88" y="122" width="44" height="44"/>
+    <line class="tank-rib" x1="86" y1="96" x2="134" y2="96"/>
+    <line class="tank-rib" x1="86" y1="122" x2="134" y2="122"/>
+    <line class="tank-rib" x1="86" y1="146" x2="134" y2="146"/>
+    <line class="tank-rib" x1="110" y1="72" x2="110" y2="166" opacity="0.25"/>
+    <ellipse class="tank-cap" cx="110" cy="166" rx="24" ry="7"/>
+    <circle class="pump-dot pump" cx="110" cy="175" r="2.4"/>
+    <text class="readout" x="95" y="86">T-02</text>
+    <path class="pipe s2" d="M 105 70 q 3 -7 -1 -11" stroke="#00ffff" opacity="0.5"/>
+  </g>
+
+  <!-- Tank 3 -->
+  <g>
+    <ellipse class="tank-cap" cx="165" cy="104" rx="18" ry="5.5"/>
+    <rect class="tank-body" x="147" y="104" width="36" height="55" rx="2"/>
+    <rect class="tank-level lvl-3" x="149" y="130" width="32" height="27"/>
+    <line class="tank-rib" x1="147" y1="123" x2="183" y2="123"/>
+    <line class="tank-rib" x1="165" y1="104" x2="165" y2="159" opacity="0.25"/>
+    <ellipse class="tank-cap" cx="165" cy="159" rx="18" ry="5.5"/>
+    <circle class="pump-dot pump" cx="165" cy="166" r="2"/>
+    <text class="readout" x="153" y="116">T-03</text>
+  </g>
+</svg>
